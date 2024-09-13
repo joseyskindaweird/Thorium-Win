@@ -1,0 +1,82 @@
+name: Build Thorium
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Git for Windows
+        run: |
+          git config --global core.longpaths true
+          git config --global user.name "Your Name"
+          git config --global user.email "your-email@example.com"
+
+      - name: Install dependencies
+        run: |
+          choco install visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Component.VC.ATLMFC"
+          choco install windows-sdk-10.1.22621
+          choco install git
+          choco install python
+
+      - name: Set environment variables
+        run: |
+          echo "C:\src\depot_tools" >> $env:GITHUB_PATH
+          echo "DEPOT_TOOLS_WIN_TOOLCHAIN=0" >> $env:GITHUB_ENV
+          echo "vs2022_install=C:\Program Files\Microsoft Visual Studio\2022\Community" >> $env:GITHUB_ENV
+
+      - name: Install depot_tools
+        run: |
+          mkdir C:\src
+          Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-infra/depot_tools.zip -OutFile C:\src\depot_tools.zip
+          Expand-Archive -Path C:\src\depot_tools.zip -DestinationPath C:\src
+          Remove-Item C:\src\depot_tools.zip
+        shell: powershell
+
+      - name: Fetch Chromium source
+        run: |
+          cd C:\src
+          mkdir chromium
+          cd chromium
+          fetch --no-history chromium
+        shell: cmd
+
+      - name: Clone Thorium repository
+        run: |
+          git clone --recursive https://github.com/Alex313031/thorium.git C:\src\thorium
+        shell: cmd
+
+      - name: Set up Thorium
+        run: |
+          cd C:\src\thorium
+          bash ./trunk.sh
+          bash ./version.sh
+          bash ./setup.sh --avx2
+        shell: bash
+
+      - name: Create build directory
+        run: |
+          cd C:\src\chromium\src
+          gn args out\thorium
+        shell: cmd
+
+      - name: Build Thorium
+        run: |
+          autoninja -C out\thorium thorium chromedriver thorium_shell setup mini_installer -j8
+        shell: cmd
+
+      - name: Upload built Thorium executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: thorium
+          path: C:\src\chromium\src\out\thorium\thorium.exe
