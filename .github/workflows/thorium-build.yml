@@ -31,9 +31,8 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "C:\src\depot_tools" >> $env:GITHUB_PATH
-          echo "DEPOT_TOOLS_WIN_TOOLCHAIN=0" >> $env:GITHUB_ENV
-          echo "vs2022_install=C:\Program Files\Microsoft Visual Studio\2022\Community" >> $env:GITHUB_ENV
+          [System.Environment]::SetEnvironmentVariable('DEPOT_TOOLS_WIN_TOOLCHAIN', '0', 'Process')
+          [System.Environment]::SetEnvironmentVariable('vs2022_install', 'C:\Program Files\Microsoft Visual Studio\2022\Community', 'Process')
 
       - name: Install depot_tools
         run: |
@@ -41,7 +40,8 @@ jobs:
           Invoke-WebRequest -Uri https://storage.googleapis.com/chrome-infra/depot_tools.zip -OutFile C:\src\depot_tools.zip
           Expand-Archive -Path C:\src\depot_tools.zip -DestinationPath C:\src
           Remove-Item C:\src\depot_tools.zip
-          echo "C:\src\depot_tools" >> $env:Path
+          $newPath = 'C:\src\depot_tools;' + [System.Environment]::GetEnvironmentVariable('PATH', 'Process')
+          [System.Environment]::SetEnvironmentVariable('PATH', $newPath, 'Process')
         shell: powershell
 
       - name: Verify depot_tools installation
